@@ -1,10 +1,8 @@
 'use strict';
 
 // https://developers.google.com/custom-search/json-api/v1/using_rest
-
 // My panel https://cse.google.com/cse/setup/basic?cx=003896172972665361582:mopzte1vfaw
 // example https://cse.google.com/cse/publicurl?cx=003896172972665361582:mopzte1vfaw
-
 
 // https://www.googleapis.com/customsearch/v1?q=%D0%BA%D0%BE%D1%82%D0%B8%D0%BA%D0%B8&cx=003896172972665361582%3Amopzte1vfaw&key=AIzaSyDJH3csjAQBiVqlRFSFcEfil5Gtvoypxjg
 
@@ -12,7 +10,7 @@ var fs = require('fs');
 var express = require('express');
 var app = express();
 var MongoClient = require('mongodb').MongoClient;
-var dbAddress = "mongodb://roicos:atdoijSyicEtEz7@ds019482.mlab.com:19482/tinyurl";
+var dbAddress = "mongodb://roicos:atdoijSyicEtEz7@ds155414.mlab.com:55414/image-search";
 var db;
 var searchEngineURL = "https://www.googleapis.com/customsearch/v1";
 var ipKey = "AIzaSyDJH3csjAQBiVqlRFSFcEfil5Gtvoypxjg";
@@ -56,7 +54,15 @@ app.route('/_api/package.json')
 app.use('/api/imagesearch/:query(*)', function(req, res, next) {     
       var queryStr = req.params.query;
       var offset = req.query.offset || 1;
-      getImages(req, res, queryStr, offset);
+  
+      const search = { term: queryStr, when : Date.now()};
+      db.collection('latest').insert(search, (err, results) => {
+        if (err) { 
+          res.end('An error inserting in database has occurred: '+ err ); 
+        } else {
+          getImages(req, res, queryStr, offset);
+        }
+      });  
 });
     
 function getImages(req, res, query, offset){ 
@@ -103,6 +109,42 @@ function getImages(req, res, query, offset){
     console.log('ERROR: ' + e.message);
   });
 }
+
+
+app.use('/api/latest/imagesearch/', function(req, res, next) { 
+      db.collection('latest').find({}, { _id: false, term: true, when: true }).sort({'when':1}).limit(10).toArray(function(err, result) {
+        if (err){
+          res.end('An error inserting in database has occurred: '+ err ); 
+        } else {
+          var resultJson = [];
+          for(var i=0; i<result.length; i++){
+            var item = {};
+            item["term"] = result[i]["term"];
+            item["when"] = formatDate(result[i]["when"]);
+            resultJson.push(item);
+          }
+          res.send(resultJson);
+        }
+      });
+});
+
+function formatDate(timestamp){
+  var date = new Date(timestamp);
+  var year = date.getFullYear();
+  var month = date.getMonth()+1;
+  var day = date.getDate();
+  var hour = date.getHours();
+  var min = date.getMinutes();
+  var sec = date.getSeconds();
+
+  return year + "-" + 
+    (month < 10 ? "0"+month : month) + "-" + 
+    (day < 10 ? "0"+day : day) + "T" + 
+    (hour < 10 ? "0"+hour : hour) + ":" + 
+    (min < 10 ? "0"+min : min) + ":" + 
+    (sec < 10 ? "0"+sec : sec);
+}
+
   
 app.route('/').get(function(req, res) {
 		  res.sendFile(process.cwd() + '/views/index.html');
