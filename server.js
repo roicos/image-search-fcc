@@ -53,38 +53,49 @@ app.route('/_api/package.json')
     });
   });
 
-app.use('/api/imagesearch/:query(*)', function(req, res, next) {
-      
-      var jsonData = {};
-      
+app.use('/api/imagesearch/:query(*)', function(req, res, next) {     
       var queryStr = req.params.query;
       var offset = req.query.offset || 1;
-      jsonData["query"] = queryStr;
-      jsonData["offset"] = req.query.offset;
       getImages(req, res, queryStr, offset);
-      res.send(jsonData);
 });
     
 function getImages(req, res, query, offset){ 
+  
   var https = require('https');
   var options = {
     host: "www.googleapis.com",
-    path: "/customsearch/v1?q="+ query +"&cx=" + searchEngineId + "&key="+ipKey + "&fileType=jpg%2C+png%2C+svg&num=" + resultsLimit + "&start=" + offset
+    path: "/customsearch/v1?q="+ encodeURIComponent(query) +"&cx=" + searchEngineId + "&key="+ipKey + "&fileType=jpg%2C+png%2C+svg&num=" + resultsLimit + "&start=" + offset * resultsLimit
   };
   
-  console.log(options.host + options.path);
+  // console.log(options.host + options.path);
 
-  var req = https.get(options, function(res) {
-    console.log('STATUS: ' + res.statusCode);
-    console.log('HEADERS: ' + JSON.stringify(res.headers));
-
+  var req = https.get(options, function(data) {
     var bodyChunks = [];
-    res.on('data', function(chunk) {
+    data.on('data', function(chunk) {
       bodyChunks.push(chunk);
     }).on('end', function() {
       var body = Buffer.concat(bodyChunks);
       var result = JSON.parse(body);
-      console.log('RESULT: ' + JSON.stringify(result.items[0]));
+      var resultJson = [];
+      for(var i = 0; i < result.items.length; i++){
+        var item = result.items[i];
+        
+        if(item["pagemap"] == undefined){
+          continue;
+        } else {
+          var resultItem = {};
+          if (item["pagemap"]["cse_image"] != undefined){
+            resultItem["url"] = item["pagemap"]["cse_image"][0]["src"];
+          }
+          if (item["pagemap"]["cse_thumbnail"] != undefined){
+            resultItem["thumbnail"] = item["pagemap"]["cse_thumbnail"][0]["src"];
+          }
+          resultItem["snippet"] = item["snippet"]; 
+          resultItem["context"] = item["link"]; 
+          resultJson.push(resultItem);
+        }        
+      }
+      res.send(resultJson);
     })
   });
 
