@@ -112,9 +112,9 @@ function getImages(req, res, query, offset){
 
 
 app.use('/api/latest/imagesearch/', function(req, res, next) { 
-      db.collection('latest').find({}, { _id: false, term: true, when: true }).sort({'when':1}).limit(10).toArray(function(err, result) {
+      db.collection('latest').find({}, { _id: false, term: true, when: true }).sort({'when':-1}).limit(10).toArray(function(err, result) {
         if (err){
-          res.end('An error inserting in database has occurred: '+ err ); 
+          res.end('An error selecting from database has occurred: '+ err ); 
         } else {
           var resultJson = [];
           for(var i=0; i<result.length; i++){
